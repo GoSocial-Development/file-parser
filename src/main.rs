@@ -12,6 +12,8 @@ use std::process;
 fn main() {
     let mut errors: Vec<String> = Vec::new();
 
+    let mut number_of_issues: usize = 0;
+
     let ini_path = "./config.ini";
 
     if !Path::new(&ini_path).exists() {
@@ -21,7 +23,7 @@ fn main() {
 
     let ini: Ini = Ini::load_from_file(ini_path).unwrap();
     let config: &Properties = ini.section(Some("CONFIG")).unwrap();
-    let row_types: &Properties = ini.section(Some("ROW_TYPES")).unwrap();
+    let row_types: &Properties = ini.section(Some("ROW_CONFIG")).unwrap();
 
     let config_input_path = config.get("INPUT_FOLDER").unwrap().to_string();
     let mut input_path: String = "./input".to_string();
@@ -65,13 +67,14 @@ fn main() {
 
     for (i, file) in files.iter().enumerate() {
         let file_errors = process_file(&file, &row_types, &config);
+        number_of_issues += file_errors.len();
         if file_errors.len() > 0 {
             errors.push(format!("FILE: {}", file.file_name().to_string_lossy()));
             for error in file_errors {
                 errors.push(error);
             }
         }
-        //print!("\x1B[2J\x1B[1;1H");
+        print!("\x1B[2J\x1B[1;1H");
         println!(
             "Processed file {} of {}",
             (i + 1).to_string().green(),
@@ -80,7 +83,7 @@ fn main() {
     }
 
     if errors.len() > 0 {
-        println!("Found {} issues", errors.len().to_string().red());
+        println!("Found {} issues", number_of_issues.to_string().red());
         write_errors(errors);
         println!("All issues can be found in {}", "errors.txt".green());
     } else {
@@ -139,8 +142,16 @@ fn process_file(file: &DirEntry, row_types: &Properties, config: &Properties) ->
                         }
 
                         for (key, value) in fields.iter().enumerate() {
-                            if value.contains("number") && !value.contains("*") {
-                                if !is_string_numeric(row_values[key + 1].to_string()) {
+                            if value.contains("number") {
+                                if !value.contains("*") {
+                                    if row_values[key + 1].to_string().len() == 0 {
+                                        file_errors.push(format!(
+                                            "#{}, Invalid Number at column #{}",
+                                            i + 1,
+                                            key + 1
+                                        ));
+                                    }
+                                } else if !is_string_numeric(row_values[key + 1].to_string()) {
                                     file_errors.push(format!(
                                         "#{}, Invalid Number at column #{}",
                                         i + 1,
