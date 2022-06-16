@@ -1,0 +1,10 @@
+[ROW_CONFIG]
+H=string*+string*+date|%m/%d/%Y+string*+date|%m/%d/%Y+string*+string*+string*+string*
+D=string*+number*+string*+string*+string*+date|%m/%d/%Y+date|%m/%d/%Y+number*+string*+number*
+P=string*+string*+number*+number*+string*+number*+number*
+A=string*+string*
+F=number*+string*
+
+[CONFIG]
+INPUT_FOLDER=input
+IGNORE_EMPTY_LINES=1
