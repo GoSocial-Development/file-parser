@@ -74,7 +74,7 @@ fn main() {
     println!("Checking {} files", &files.len());
 
     for (i, file) in files.iter().enumerate() {
-        let file_errors = check_file(&file, &cfg_row_types, &config);
+        let file_errors = check_file(&file, &cfg_row_types);
         number_of_issues += file_errors.len();
         if file_errors.len() > 0 {
             errors.push(format!("FILE: {}", file.file_name().to_string_lossy()));
@@ -82,7 +82,6 @@ fn main() {
                 errors.push(error);
             }
         }
-        print!("\x1B[2J\x1B[1;1H");
         println!(
             "Checked file {} of {}",
             (i + 1).to_string().green(),
@@ -175,19 +174,19 @@ fn validate_ini(cfg_column_names: &Properties, cfg_row_types: &Properties) -> bo
         if !valid {
             continue;
         }
-        if cfg_column_names
+        let column_names = cfg_column_names
             .get(key.to_string())
             .unwrap()
             .split("+")
-            .collect::<Vec<&str>>()
-            .len()
-            != cfg_row_types
-                .get(key.to_string())
-                .unwrap()
-                .split("+")
-                .collect::<Vec<&str>>()
-                .len()
-        {
+            .collect::<Vec<&str>>();
+
+        let row_types = cfg_row_types
+            .get(key.to_string())
+            .unwrap()
+            .split("+")
+            .collect::<Vec<&str>>();
+
+        if column_names.len() != row_types.len() {
             valid = false;
             println!(
                 "Invalid INI Config, please check the Columns Names and Column Types section of {:?}",
@@ -213,7 +212,12 @@ fn process_file(
         for (_i, line) in lines.enumerate() {
             if let Ok(ip) = line {
                 let row_values: Vec<String> = ip.split("\t").map(|s| s.to_string()).collect();
-                let first_letter = row_values[0].chars().nth(0).unwrap();
+                let first_letter = ip.chars().nth(0).unwrap();
+
+                if first_letter.is_whitespace() {
+                    continue;
+                }
+
                 let column_names = cfg_column_names
                     .get(&first_letter.to_string())
                     .unwrap()
@@ -268,7 +272,7 @@ fn process_file(
                 sql_statement += ") VALUES (";
                 for (key, value) in column_values.iter().enumerate() {
                     if !row_types[key].contains("number") {
-                        let mut string_value = value.1.to_string().replace("'", "\\'").clone();
+                        let mut string_value = value.1.to_string().replace("'", "''").clone();
                         if &string_value.chars().last() == &Some('"') {
                             string_value.pop();
                         }
@@ -356,7 +360,7 @@ fn validate_file_type(file_type: &str) -> bool {
     }
 }
 
-fn check_file(file: &DirEntry, row_types: &Properties, config: &Properties) -> Vec<String> {
+fn check_file(file: &DirEntry, row_types: &Properties) -> Vec<String> {
     let mut file_errors: Vec<String> = Vec::new();
     if let Ok(lines) = read_lines(file.path()) {
         for (i, line) in lines.enumerate() {
@@ -368,7 +372,7 @@ fn check_file(file: &DirEntry, row_types: &Properties, config: &Properties) -> V
                 }
 
                 if first_letter.is_whitespace() {
-                    file_errors.push(format!("#{}, Empty Line: {}", i + 1, first_letter));
+                    //file_errors.push(format!("#{}, Empty Line: {}", i + 1, first_letter));
                     continue;
                 }
 
@@ -432,7 +436,7 @@ fn check_file(file: &DirEntry, row_types: &Properties, config: &Properties) -> V
                                 {
                                     let format = value.split("|").collect::<Vec<&str>>()[1];
                                     match NaiveDate::parse_from_str(row_values[key], format) {
-                                        Ok(_) => continue,
+                                        Ok(_) => (),
                                         Err(_) => {
                                             file_errors.push(format!(
                                                 "#{}, Invalid Date at column #{}",
